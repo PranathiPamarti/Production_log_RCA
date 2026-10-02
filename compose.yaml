@@ -1,0 +1,98 @@
+name: chicken
+
+services:
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+    container_name: chicken-api-gateway
+    environment:
+      SERVICE_NAME: api-gateway
+      USER_SERVICE_URL: http://user-service:8001
+      ORDER_SERVICE_URL: http://order-service:8002
+    ports:
+      - "8000:8000"
+    networks:
+      - chicken-network
+
+  user-service:
+    build:
+      context: ./services/user-service
+    container_name: chicken-user-service
+    environment:
+      SERVICE_NAME: user-service
+      ORDER_SERVICE_URL: http://order-service:8002
+    networks:
+      - chicken-network
+
+  order-service:
+    build:
+      context: ./services/order-service
+    container_name: chicken-order-service
+    environment:
+      SERVICE_NAME: order-service
+      INVENTORY_SERVICE_URL: http://inventory-service:8004
+      PAYMENT_SERVICE_URL: http://payment-service:8003
+    networks:
+      - chicken-network
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+    container_name: chicken-payment-service
+    environment:
+      SERVICE_NAME: payment-service
+      DATABASE_SERVICE_URL: http://database-service:8005
+    networks:
+      - chicken-network
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+    container_name: chicken-inventory-service
+    environment:
+      SERVICE_NAME: inventory-service
+    networks:
+      - chicken-network
+
+  database-service:
+    build:
+      context: ./services/database-service
+    container_name: chicken-database-service
+    environment:
+      SERVICE_NAME: database-service
+    networks:
+      - chicken-network
+
+  kafka:
+    image: apache/kafka:4.0.0
+    container_name: chicken-kafka
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    networks:
+      - chicken-network
+  spark:
+    build:
+      context: ./streaming
+    container_name: chicken-spark
+    depends_on:
+      - kafka
+    networks:
+      - chicken-network 
+networks:
+  chicken-network:
+    driver: bridge
